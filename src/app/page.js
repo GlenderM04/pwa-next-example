@@ -1,95 +1,96 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+'use client';
+
+import { useEffect, useState } from 'react';
+import styled from '@emotion/styled';
+import { saveSubmission, getSubmissions, clearSubmissions } from '../lib/db';
+
+const Container = styled.div`
+  padding: 2rem;
+  font-family: sans-serif;
+`;
+
+const Input = styled.input`
+  display: block;
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  width: 300px;
+`;
+
+const Button = styled.button`
+  padding: 0.5rem 1rem;
+  background-color: green;
+  color: white;
+  border: none;
+  cursor: pointer;
+`;
+
+const Status = styled.div`
+  margin-top: 1rem;
+  color: blue;
+`;
 
 export default function Home() {
-  return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol>
-          <li>
-            Get started by editing <code>src/app/page.js</code>.
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [name, setName] = useState('');
+  const [message, setMessage] = useState('');
+  const [status, setStatus] = useState('');
 
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.secondary}
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className={styles.footer}>
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const data = { name, message, timestamp: new Date().toISOString() };
+
+    if (navigator.onLine) {
+      setStatus('Online: Sending to server...');
+      await fakeSendToServer(data);
+    } else {
+      setStatus('Offline: Saving to local DB');
+      await saveSubmission(data);
+    }
+
+    setName('');
+    setMessage('');
+  };
+
+  const syncOfflineData = async () => {
+    const stored = await getSubmissions();
+    if (stored.length > 0) {
+      setStatus(`Syncing ${stored.length} saved form(s)...`);
+      for (let entry of stored) {
+        await fakeSendToServer(entry);
+      }
+      await clearSubmissions();
+      setStatus('All offline forms synced.');
+    }
+  };
+
+  useEffect(() => {
+    window.addEventListener('online', syncOfflineData);
+    if (navigator.onLine) syncOfflineData();
+    return () => window.removeEventListener('online', syncOfflineData);
+  }, []);
+
+  const fakeSendToServer = async (data) => {
+    console.log('Mock sending to server...', data);
+    return new Promise((res) => setTimeout(res, 1000));
+  };
+
+  return (
+    <Container>
+      <h1>Offline Form</h1>
+      <form onSubmit={handleSubmit}>
+        <Input
+          placeholder="Your name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <Input
+          placeholder="Your message"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+        />
+        <Button type="submit">Submit</Button>
+      </form>
+      <Status>{status}</Status>
+    </Container>
   );
 }
